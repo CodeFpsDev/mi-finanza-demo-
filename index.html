@@ -1227,7 +1227,7 @@ $("#view").onclick = async e => {
   if(act === "neg-edit") abrirForm("Editar negocio", camposNegocio, neg, d => editar("negocios", id, d));
   if(act === "neg-open"){ negocioSel = id; render(); window.scrollTo?.(0, 0); }
   if(act === "neg-back"){ negocioSel = null; render(); }
-  if(act ===-> "neg-del" && await confirmar(`¿Borrar el negocio “{neg.nombre}” y todos sus movimientos?`)){
+  if(act === "neg-del" && await confirmar(`¿Borrar el negocio “{neg.nombre}” y todos sus movimientos?`)){
     for(const m of negMovs.filter(x => x.negocioId === id)) await borrar("negMovs", m.id);
     if(negocioSel === id) negocioSel = null;
     await borrar("negocios", id);
