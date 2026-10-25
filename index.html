@@ -246,12 +246,13 @@
   </header>
   <nav id="tabs" class="wrap">
     <button data-tab="resumen" class="active"><span data-ico="home"></span>Resumen</button>
-    <button data-tab="movs"><span data-ico="swap"></span>Movimiento</button>
+    <button data-tab="movs"><span data-ico="swap"></span>Dinero</button>
     <button data-tab="netflix"><span data-ico="tv"></span>Netflix</button>
     <button data-tab="cuotas"><span data-ico="card"></span>Cuotas</button>
     <button data-tab="cripto"><span data-ico="coin"></span>Cripto</button>
     <button data-tab="bancos"><span data-ico="bank"></span>Bancos</button>
     <button data-tab="negocios"><span data-ico="store"></span>Negocios</button>
+    <button data-tab="historial"><span data-ico="clock"></span>Historial</button>
   </nav>
   <div id="demoBar" class="demobar wrap hidden">Modo demo: los datos son de ejemplo y se guardan solo en este navegador. Para guardar en Firebase, abre esta app desde tu hosting o un servidor local.</div>
   <main id="view" class="wrap enter"></main>
@@ -299,7 +300,7 @@ $("#setup").classList.add("hidden");
 
 /* ---------- Estado ---------- */
 let uid = null, unsubs = [];
-let movs = [], clientes = [], cuotas = [], cripto = [], bancos = [], negocios = [], negMovs = [];
+let movs = [], clientes = [], cuotas = [], cripto = [], bancos = [], negocios = [], negMovs = [], historial = [];
 let negocioSel = null;
 let tab = "resumen";
 let moneda = "USD"; try { moneda = localStorage.getItem("moneda") || "USD"; } catch(e){}
@@ -331,7 +332,7 @@ const fechaFmt = iso => iso ? iso.split("-").reverse().join("/") : "—";
 
 /* ---------- Datos: Firestore, o demo local si Firebase no carga ---------- */
 const DEMO_KEY = "finanzas_demo_v1";
-let demoData = { movimientos:[], clientes:[], cuotas:[], cripto:[], bancos:[], negocios:[], negMovs:[] };
+let demoData = { movimientos:[], clientes:[], cuotas:[], cripto:[], bancos:[], negocios:[], negMovs:[], historial:[] };
 const guardarDemo = () => { try { localStorage.setItem(DEMO_KEY, JSON.stringify(demoData)); } catch(e){} };
 function semillaNegocios(){
   const h = hoy(), m0 = h.slice(0,7);
@@ -361,7 +362,7 @@ function semillaCripto(){
   ];
 }
 function cargarDemo(){
-  try { const g = localStorage.getItem(DEMO_KEY); if(g){ const o = JSON.parse(g); if(!o.cripto) o.cripto = semillaCripto(); o.cripto.forEach(x => { if(x.moneda === "USDC") x.moneda = "USDT"; }); if(!o.bancos) o.bancos = semillaBancos(); if(!o.negocios){ const q = semillaNegocios(); o.negocios = q.negocios; o.negMovs = q.negMovs; } return o; } } catch(e){}
+  try { const g = localStorage.getItem(DEMO_KEY); if(g){ const o = JSON.parse(g); if(!o.cripto) o.cripto = semillaCripto(); o.cripto.forEach(x => { if(x.moneda === "USDC") x.moneda = "USDT"; }); if(!o.bancos) o.bancos = semillaBancos(); if(!o.negocios){ const q = semillaNegocios(); o.negocios = q.negocios; o.negMovs = q.negMovs; } if(!o.historial) o.historial = []; return o; } } catch(e){}
   const m0 = hoy().slice(0,7);
   const d = n => { const x = new Date(); x.setDate(x.getDate()+n); const p = k => String(k).padStart(2,"0"); return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`; };
   return {
@@ -369,6 +370,7 @@ function cargarDemo(){
     bancos: semillaBancos(),
     negocios: semillaNegocios().negocios,
     negMovs: semillaNegocios().negMovs,
+    historial: [],
     movimientos:[
       { id:"m1", tipo:"ingreso", fecha:m0+"-02", descripcion:"Sueldo del mes (ejemplo)", monto:1200, categoria:"Salario" },
       { id:"m2", tipo:"ingreso", fecha:m0+"-04", descripcion:"Venta de accesorios (ejemplo)", monto:60, categoria:"Venta" },
@@ -386,7 +388,7 @@ function cargarDemo(){
     ],
   };
 }
-const emitirDemo = () => { movs = [...demoData.movimientos]; clientes = [...demoData.clientes]; cuotas = [...demoData.cuotas]; cripto = [...(demoData.cripto || [])]; bancos = [...(demoData.bancos || [])]; negocios = [...(demoData.negocios || [])]; negMovs = [...(demoData.negMovs || [])]; render(); };
+const emitirDemo = () => { movs = [...demoData.movimientos]; clientes = [...demoData.clientes]; cuotas = [...demoData.cuotas]; cripto = [...(demoData.cripto || [])]; bancos = [...(demoData.bancos || [])]; negocios = [...(demoData.negocios || [])]; negMovs = [...(demoData.negMovs || [])]; historial = [...(demoData.historial || [])]; render(); };
 
 const col = name => collection(db, "users", uid, name);
 const ref = (name, id) => doc(db, "users", uid, name, id);
@@ -406,6 +408,7 @@ function suscribir(){
     watch("bancos", v => bancos = v),
     watch("negocios", v => negocios = v),
     watch("negMovs", v => negMovs = v),
+    watch("historial", v => historial = v),
   ];
 }
 const crear = (name, data) => {
@@ -468,7 +471,7 @@ if(!demo){
       $("#app").classList.remove("hidden");
       suscribir();
     } else {
-      uid = null; movs = []; clientes = []; cuotas = []; cripto = []; bancos = []; negocios = []; negMovs = [];
+      uid = null; movs = []; clientes = []; cuotas = []; cripto = []; bancos = []; negocios = []; negMovs = []; historial = [];
       $("#app").classList.add("hidden");
       $("#auth").classList.remove("hidden");
     }
@@ -825,12 +828,63 @@ function vCripto(){
     : `<div class="empty"><span class="chip" style="--c:var(--c3)">${ico("coin", 26)}</span><p>Aún no registras cripto. Agrega tu balance de BTC o USDT.</p></div>`}`;
 }
 
+/* ---------- Funciones de Patrimonio Neto (Net Worth / Historial) ---------- */
+function calcularPatrimonioTotal(){
+  const totalBancos = bancos.reduce((s, b) => s + Number(b.saldo || 0), 0);
+  const bc = balCripto();
+  const { t: totalCriptoUsd } = totalUsd(bc);
+  const totalNegocios = negocios.reduce((s, n) => s + statsNeg(n).res, 0);
+  return {
+    bancos: totalBancos,
+    criptoUsd: totalCriptoUsd,
+    negocios: totalNegocios,
+    neto: totalBancos + totalNegocios
+  };
+}
+
+async function registrarCierreMes(){
+  const p = calcularPatrimonioTotal();
+  const mesActual = mes;
+  const existente = historial.find(h => h.mes === mesActual);
+  if(existente){
+    await editar("historial", existente.id, { ...p, actualizado: hoy() });
+    avisar("¡Patrimonio del mes " + mesActual + " actualizado!");
+  } else {
+    await crear("historial", { mes: mesActual, ...p, creado: hoy() });
+    avisar("¡Guardado el Net Worth de " + mesActual + "!");
+  }
+}
+
+function vHistorial(){
+  const listaHistorial = [...historial].sort((a, b) => b.mes.localeCompare(a.mes));
+  return `
+  <div class="sec-h">
+    <h2>Historial de Patrimonio (Net Worth)</h2>
+    <button class="btn small" data-act="guardar-cierre">Guardar cierre de ${esc(mesLabel())}</button>
+  </div>
+  <div class="muted" style="margin-bottom:14px">Lleva un registro histórico de tus cierres mensuales de bancos y negocios.</div>
+  ${listaHistorial.length ? `<ul class="list">${listaHistorial.map(h => `
+    <li>
+      <div class="main"><b>Mes: ${esc(h.mes)}</b><span>Bancos: ${fmt(h.bancos)} · Negocios: ${fmt(h.negocios)}</span></div>
+      <span class="amt ok">Neto: ${fmt(h.neto)}</span>
+    </li>`).join("")}</ul>`
+    : `<div class="empty"><span class="chip" style="--c:var(--c1)">${ico("wallet", 26)}</span><p>Guarda el cierre de tus meses para llevar un registro histórico de tu crecimiento financiero.</p></div>`}`;
+}
+
 /* ---------- Render ---------- */
 function render(){
   if(!uid) return;
   saludo();
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  $("#view").innerHTML = tab === "resumen" ? vResumen() : tab === "movs" ? vMovs() : tab === "netflix" ? vNetflix() : tab === "cripto" ? vCripto() : tab === "bancos" ? vBancos() : tab === "negocios" ? vNegocios() : vCuotas();
+  
+  if(tab === "resumen") $("#view").innerHTML = vResumen();
+  else if(tab === "movs") $("#view").innerHTML = vMovs();
+  else if(tab === "netflix") $("#view").innerHTML = vNetflix();
+  else if(tab === "cuotas") $("#view").innerHTML = vCuotas();
+  else if(tab === "cripto") $("#view").innerHTML = vCripto();
+  else if(tab === "bancos") $("#view").innerHTML = vBancos();
+  else if(tab === "negocios") $("#view").innerHTML = vNegocios();
+  else if(tab === "historial") $("#view").innerHTML = vHistorial();
 }
 
 const movsMes = () => movs.filter(m => (m.fecha || "").startsWith(mes));
@@ -1061,6 +1115,8 @@ $("#view").onclick = async e => {
   const b = e.target.closest("button[data-act]"); if(!b) return;
   const { act, id, tipo } = b.dataset;
   const mov = movs.find(x => x.id === id), cli = clientes.find(x => x.id === id), cuo = cuotas.find(x => x.id === id);
+
+  if(act === "guardar-cierre") await registrarCierreMes();
 
   if(act === "mov-new") abrirForm(tipo === "ingreso" ? "Nuevo ingreso" : "Nuevo gasto", camposMov(tipo), null,
       d => crear("movimientos", { ...d, tipo }));
