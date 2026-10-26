@@ -187,6 +187,14 @@
   .big-amt{font:700 28px/1.1 var(--f-display);letter-spacing:-.015em;overflow-wrap:anywhere}
   .big-amt small{font-size:14px;color:var(--muted);font-weight:600}
   .hero-crypto+.hero-crypto{margin-top:12px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;padding:3px;background:var(--card)}
+  .seg button{border:0;background:transparent;color:var(--muted);padding:7px 14px;border-radius:9px;font-weight:700;font-size:13.5px;cursor:pointer}
+  .seg button.on{background:var(--text);color:var(--bg)}
+  .split-bar.mini{height:8px;background:var(--bad)} .split-bar.mini i{background:var(--ok)}
+  .day{margin-bottom:14px}
+  .day-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px 14px;flex-wrap:wrap;padding:0 4px 7px}
+  .day-h>b{font:700 15px var(--f-display);text-transform:capitalize}
+  .day-t{display:flex;gap:12px;font-size:13.5px;flex-wrap:wrap}
   @media (max-width:640px){
     .hd{padding:10px 0}
     nav#tabs{position:fixed;left:0;right:0;bottom:0;z-index:8;max-width:none;margin:0;gap:2px;overflow-x:auto;background:var(--card);border-top:1px solid var(--line);
@@ -250,12 +258,13 @@
   </header>
   <nav id="tabs" class="wrap">
     <button data-tab="resumen" class="active"><span data-ico="home"></span>Resumen</button>
-    <button data-tab="movs"><span data-ico="swap"></span>Movimiento</button>
+    <button data-tab="movs"><span data-ico="swap"></span>Dinero</button>
     <button data-tab="netflix"><span data-ico="tv"></span>Netflix</button>
     <button data-tab="cuotas"><span data-ico="card"></span>Cuotas</button>
     <button data-tab="cripto"><span data-ico="coin"></span>Cripto</button>
     <button data-tab="bancos"><span data-ico="bank"></span>Bancos</button>
     <button data-tab="negocios"><span data-ico="store"></span>Negocios</button>
+    <button data-tab="historial"><span data-ico="history"></span>Historial</button>
   </nav>
   <div id="demoBar" class="demobar wrap hidden">Modo demo: los datos son de ejemplo y se guardan solo en este navegador. Para guardar en Firebase, abre esta app desde tu hosting o un servidor local.</div>
   <main id="view" class="wrap enter"></main>
@@ -303,7 +312,7 @@ $("#setup").classList.add("hidden");
 /* ---------- Estado ---------- */
 let uid = null, unsubs = [];
 let movs = [], clientes = [], cuotas = [], cripto = [], bancos = [], negocios = [], negMovs = [];
-let negocioSel = null;
+let negocioSel = null, histVista = "diario";
 let tab = "resumen";
 let moneda = "USD"; try { moneda = localStorage.getItem("moneda") || "USD"; } catch(e){}
 const hoy = () => { const x = new Date(), p = n => String(n).padStart(2,"0"); return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`; };
@@ -389,30 +398,32 @@ function cargarDemo(){
     ],
   };
 }
-const emitirDemo = () => { movs = [...demoData.movimientos]; clientes = [...demoData.clientes]; cuotas = [...demoData.cuotas]; cripto = [...(demoData.cripto || [])]; bancos = [...(demoData.bancos || [])]; negocios = [...(demoData.negocios || [])]; negMovs = [...(demoData.negMovs || [])]; render(); };
+const emitirDemo = () => { movs = [...demoData.movimientos]; clientes = [...demoData.clientes]; cuotas = [...demoData.cuotas]; cripto = [...(demoData.cripto || [])]; bancos = [...(demoData.bancos || [])]; bancosListos = true; negocios = [...(demoData.negocios || [])]; negMovs = [...(demoData.negMovs || [])]; render(); };
 
 const col = name => collection(db, "users", uid, name);
 const ref = (name, id) => doc(db, "users", uid, name, id);
 
-/* Acceso rápido: ?nuevo=gasto o ?nuevo=ingreso abre el formulario al entrar */
-let rapidoHecho = false;
+/* Acceso rápido: ?nuevo=1 (o =gasto / =ingreso) abre el formulario al entrar */
+let rapidoHecho = false, bancosListos = false;
 function abrirRapido(){
   if(rapidoHecho) return;
   let p = null;
   try { p = new URLSearchParams(location.search).get("nuevo"); } catch(e){}
-  if(p !== "gasto" && p !== "ingreso") return;
+  if(!p) return;
   rapidoHecho = true;
   setTimeout(() => {
     tab = "movs"; render();
-    abrirForm(p === "ingreso" ? "Nuevo ingreso" : "Nuevo gasto", camposMov(p), null,
-      d => crear("movimientos", { ...d, tipo:p }).then(() => avisar("Guardado")));
+    abrirForm("Nuevo movimiento", camposRapido(), { tipo: p === "ingreso" ? "Ingreso" : "Gasto" }, async d => {
+      const tipo = d.tipo === "Ingreso" ? "ingreso" : "gasto";
+      await guardarMov({ tipo, fecha:d.fecha, descripcion:d.descripcion || d.categoria, monto:d.monto, categoria:d.categoria, bancoId:idDeLabel(d.banco) });
+      avisar("Guardado");
+    });
     try { $("#dlgForm").elements["monto"].focus(); } catch(e){}
     try { history.replaceState(null, "", location.pathname); } catch(e){}
   }, 0);
 }
 
 function suscribir(){
-  abrirRapido();
   cargarPrecios();
   if(demo){ emitirDemo(); return; }
   const watch = (name, setter) => onSnapshot(col(name), snap => {
@@ -424,7 +435,7 @@ function suscribir(){
     watch("clientes", v => clientes = v),
     watch("cuotas", v => cuotas = v),
     watch("cripto", v => cripto = v),
-    watch("bancos", v => bancos = v),
+    watch("bancos", v => { bancos = v; bancosListos = true; }),
     watch("negocios", v => negocios = v),
     watch("negMovs", v => negMovs = v),
   ];
@@ -489,7 +500,7 @@ if(!demo){
       $("#app").classList.remove("hidden");
       suscribir();
     } else {
-      uid = null; movs = []; clientes = []; cuotas = []; cripto = []; bancos = []; negocios = []; negMovs = [];
+      uid = null; movs = []; clientes = []; cuotas = []; cripto = []; bancos = []; negocios = []; negMovs = []; bancosListos = false;
       $("#app").classList.add("hidden");
       $("#auth").classList.remove("hidden");
     }
@@ -558,12 +569,48 @@ const confirmar = msg => new Promise(res => {
 /* ---------- Campos de cada módulo ---------- */
 const CATS_ING = ["Salario","Venta","Netflix","Servicios","Otro"];
 const CATS_GAS = ["Comida","Transporte","Hogar","Servicios","Cuotas","Ocio","Otro"];
+const bancoLabel = b => `${b.nombre} · ${b.moneda}`;
+const opcionesBanco = () => ["Sin banco", ...bancos.map(bancoLabel)];
+const idDeLabel = l => bancos.find(b => bancoLabel(b) === l)?.id || "";
+const labelDeId = id => { const b = bancos.find(x => x.id === id); return b ? bancoLabel(b) : "Sin banco"; };
+const ultimoBanco = () => { try { return localStorage.getItem("banco_ultimo") || ""; } catch(e){ return ""; } };
 const camposMov = tipo => [
   { key:"fecha", label:"Fecha", type:"date", def:hoy(), req:true },
   { key:"descripcion", label:"Descripción", req:true },
   { key:"monto", label:"Monto", type:"number", step:"any", req:true },
+  { key:"banco", label: tipo === "ingreso" ? "¿A qué banco entra?" : "¿De qué banco sale?", type:"select", options:opcionesBanco(), def:labelDeId(ultimoBanco()) },
   { key:"categoria", label:"Categoría", type:"select", options: tipo === "ingreso" ? CATS_ING : CATS_GAS },
 ];
+const camposRapido = () => [
+  { key:"tipo", label:"Tipo", type:"select", options:["Gasto","Ingreso"] },
+  { key:"monto", label:"Monto", type:"number", step:"any", req:true },
+  { key:"banco", label:"Banco (de dónde sale o a dónde entra)", type:"select", options:opcionesBanco(), def:labelDeId(ultimoBanco()) },
+  { key:"categoria", label:"Categoría", type:"select", options:[...new Set([...CATS_GAS, ...CATS_ING])] },
+  { key:"descripcion", label:"Descripción (opcional)" },
+  { key:"fecha", label:"Fecha", type:"date", def:hoy(), req:true },
+];
+const firmado = m => (m.tipo === "ingreso" ? 1 : -1) * Number(m.monto || 0);
+function ajustarBanco(bancoId, delta){
+  const b = bancos.find(x => x.id === bancoId);
+  if(!b || !delta) return Promise.resolve();
+  return editar("bancos", bancoId, { saldo: Math.round((Number(b.saldo || 0) + delta) * 100) / 100, actualizado: hoy() });
+}
+async function guardarMov({ tipo, fecha, descripcion, monto, categoria, bancoId }){
+  await crear("movimientos", { tipo, fecha, descripcion, monto, categoria, bancoId: bancoId || "" });
+  if(bancoId){
+    await ajustarBanco(bancoId, firmado({ tipo, monto }));
+    try { localStorage.setItem("banco_ultimo", bancoId); } catch(e){}
+  }
+}
+async function guardarEdicionMov(viejo, d){
+  const { banco, ...resto } = d;
+  const bancoId = idDeLabel(banco);
+  await editar("movimientos", viejo.id, { ...resto, bancoId });
+  const deltas = {};
+  if(viejo.bancoId) deltas[viejo.bancoId] = (deltas[viejo.bancoId] || 0) - firmado(viejo);
+  if(bancoId) deltas[bancoId] = (deltas[bancoId] || 0) + firmado({ tipo:viejo.tipo, monto:d.monto });
+  for(const [id, dl] of Object.entries(deltas)) await ajustarBanco(id, dl);
+}
 const camposCliente = [
   { key:"nombre", label:"Nombre del cliente", req:true },
   { key:"telefono", label:"Teléfono / contacto" },
@@ -601,6 +648,7 @@ const ICONS = {
   alert:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
   wallet:'<path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1z"/><path d="M4 7V6a2 2 0 0 1 2-2h10M16 14h2"/>',
   coin:'<circle cx="12" cy="12" r="9"/><path d="M9.5 8v8M9.5 8.5h3.2a1.8 1.8 0 0 1 0 3.5H9.5m0 0h3.6a1.8 1.8 0 0 1 0 3.6H9.5M11.5 6.6V8M11.5 16v1.4"/>',
+  history:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/>',
   store:'<path d="M4 9l1.5-5h13L20 9M4 9h16M5 9v11h14V9M9.5 20v-5h5v5"/>',
   left:'<path d="M15 6l-6 6 6 6"/>',
   bank:'<path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
@@ -667,6 +715,67 @@ const camposCripto = [
   { key:"fecha", label:"Fecha", type:"date", def:hoy(), req:true },
   { key:"nota", label:"Nota (opcional)" },
 ];
+
+/* ---------- Historial ---------- */
+const fechaLarga = iso => { const [y, m, d] = iso.split("-").map(Number); return new Intl.DateTimeFormat("es", { weekday:"short", day:"numeric", month:"short" }).format(new Date(y, m - 1, d)).replace(/\./g, ""); };
+const mesNombre = k => { const [y, m] = k.split("-").map(Number); return new Intl.DateTimeFormat("es", { month:"long", year:"numeric" }).format(new Date(y, m - 1, 1)); };
+const nombreBanco = m => m.bancoId && bancos.some(b => b.id === m.bancoId) ? " · " + esc(bancos.find(b => b.id === m.bancoId).nombre) : "";
+function itemMov(m){
+  const inc = m.tipo === "ingreso";
+  return `<li><span class="tipo" style="--c:var(${inc ? "--ok" : "--bad"})">${ico(inc ? "up" : "down", 20)}</span>
+    <div class="main"><b>${esc(m.descripcion)}</b><span>${esc(m.categoria)}${nombreBanco(m)}</span></div>
+    <span class="amt ${inc ? "ok" : "bad"}">${inc ? "+" : "−"} ${fmt(m.monto)}</span>
+    <div class="row-actions">
+      <button class="ib" data-act="mov-edit" data-id="${m.id}" aria-label="Editar" title="Editar">${ico("edit", 16)}</button>
+      <button class="ib del" data-act="mov-del" data-id="${m.id}" aria-label="Borrar" title="Borrar">${ico("trash", 16)}</button>
+    </div></li>`;
+}
+function vHistorial(){
+  const seg = `<div class="seg" role="tablist">
+    <button class="${histVista === "diario" ? "on" : ""}" data-act="hist-vista" data-id="diario">Diario</button>
+    <button class="${histVista === "mensual" ? "on" : ""}" data-act="hist-vista" data-id="mensual">Mensual</button></div>`;
+  if(histVista === "mensual"){
+    const por = {};
+    movs.forEach(m => { const k = (m.fecha || "").slice(0, 7); if(!k) return; (por[k] ??= []).push(m); });
+    const meses = Object.keys(por).sort().reverse();
+    const ingT = suma(movs, "ingreso"), gasT = suma(movs, "gasto");
+    return `
+    <div class="sec-h"><h2>Historial</h2>${seg}</div>
+    <div class="strip">
+      <div class="st">Ingresos acumulados<b class="ok">${fmt(ingT)}</b></div>
+      <div class="st">Gastos acumulados<b class="bad">${fmt(gasT)}</b></div>
+      <div class="st">Balance acumulado<b>${fmt(ingT - gasT)}</b></div>
+    </div>
+    ${meses.length ? `<div class="cards">${meses.map(k => { const ms = por[k], ing = suma(ms, "ingreso"), gas = suma(ms, "gasto"), tot = ing + gas;
+      return `<article class="cli">
+        <div class="cli-head"><div class="main"><b style="text-transform:capitalize;font-size:17px">${esc(mesNombre(k))}</b><span>${ms.length} ${ms.length === 1 ? "movimiento" : "movimientos"}</span></div>
+          <span class="pill ${ing - gas >= 0 ? "ok" : "bad"}">${fmt(ing - gas)}</span></div>
+        <div class="split-bar mini" role="img" aria-label="Proporción de ingresos y gastos"><i style="width:${tot ? ing / tot * 100 : 50}%"></i></div>
+        <dl class="meta"><div><dt>Ingresos</dt><dd class="ok">${fmt(ing)}</dd></div><div><dt>Gastos</dt><dd class="bad">${fmt(gas)}</dd></div></dl>
+        <div class="card-foot"><button class="btn small sec" data-act="hist-mes" data-id="${k}">Ver día por día</button></div>
+      </article>`; }).join("")}</div>`
+      : `<div class="empty"><span class="chip" style="--c:var(--c2)">${ico("history", 26)}</span><p>Todavía no hay movimientos para armar el historial.</p></div>`}`;
+  }
+  const mm = movsMes();
+  const dias = {};
+  mm.forEach(m => { (dias[m.fecha] ??= []).push(m); });
+  const fechas = Object.keys(dias).sort().reverse();
+  const ing = suma(mm, "ingreso"), gas = suma(mm, "gasto");
+  return `
+  <div class="sec-h"><h2 style="text-transform:capitalize">${esc(mesLabel())}</h2>${seg}</div>
+  <div class="strip">
+    <div class="st">Ingresos<b class="ok">${fmt(ing)}</b></div>
+    <div class="st">Gastos<b class="bad">${fmt(gas)}</b></div>
+    <div class="st">Balance<b>${fmt(ing - gas)}</b></div>
+    <div class="st">Días con movimientos<b>${fechas.length}</b></div>
+  </div>
+  ${fechas.length ? fechas.map(f => { const ms = dias[f], i = suma(ms, "ingreso"), g = suma(ms, "gasto");
+    return `<section class="day">
+      <div class="day-h"><b>${esc(fechaLarga(f))}</b>
+        <span class="day-t"><span class="ok">+ ${fmt(i)}</span><span class="bad">− ${fmt(g)}</span><b class="${i - g >= 0 ? "ok" : "bad"}">${fmt(i - g)}</b></span></div>
+      <ul class="list">${ms.map(itemMov).join("")}</ul></section>`; }).join("")
+    : `<div class="empty"><span class="chip" style="--c:var(--c2)">${ico("history", 26)}</span><p>No hay movimientos en este mes. Cambia el mes arriba o mira la vista mensual.</p></div>`}`;
+}
 
 /* ---------- Negocios ---------- */
 const NEG_ESTADOS = ["En idea", "En marcha", "Pausado", "Cerrado"];
@@ -851,7 +960,8 @@ function render(){
   if(!uid) return;
   saludo();
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  $("#view").innerHTML = tab === "resumen" ? vResumen() : tab === "movs" ? vMovs() : tab === "netflix" ? vNetflix() : tab === "cripto" ? vCripto() : tab === "bancos" ? vBancos() : tab === "negocios" ? vNegocios() : vCuotas();
+  $("#view").innerHTML = tab === "resumen" ? vResumen() : tab === "movs" ? vMovs() : tab === "netflix" ? vNetflix() : tab === "cripto" ? vCripto() : tab === "bancos" ? vBancos() : tab === "negocios" ? vNegocios() : tab === "historial" ? vHistorial() : vCuotas();
+  if(bancosListos) abrirRapido();
 }
 
 const movsMes = () => movs.filter(m => (m.fecha || "").startsWith(mes));
@@ -989,7 +1099,7 @@ function vMovs(){
   </div>
   ${lista.length ? `<ul class="list">${lista.map(m => { const inc = m.tipo === "ingreso"; const dp = partes(m.fecha);
     return `<li><span class="tipo" style="--c:var(${inc ? "--ok" : "--bad"})">${ico(inc ? "up" : "down", 20)}</span>
-      <div class="main"><b>${esc(m.descripcion)}</b><span>${dp.d} ${dp.m} · ${esc(m.categoria)}</span></div>
+      <div class="main"><b>${esc(m.descripcion)}</b><span>${dp.d} ${dp.m} · ${esc(m.categoria)}${m.bancoId && bancos.some(b => b.id === m.bancoId) ? " · " + esc(bancos.find(b => b.id === m.bancoId).nombre) : ""}</span></div>
       <span class="amt ${inc ? "ok" : "bad"}">${inc ? "+" : "−"} ${fmt(m.monto)}</span>
       <div class="row-actions">
         <button class="ib" data-act="mov-edit" data-id="${m.id}" aria-label="Editar" title="Editar">${ico("edit", 16)}</button>
@@ -1084,26 +1194,39 @@ $("#view").onclick = async e => {
   const mov = movs.find(x => x.id === id), cli = clientes.find(x => x.id === id), cuo = cuotas.find(x => x.id === id);
 
   if(act === "mov-new") abrirForm(tipo === "ingreso" ? "Nuevo ingreso" : "Nuevo gasto", camposMov(tipo), null,
-      d => crear("movimientos", { ...d, tipo }));
-  if(act === "mov-edit") abrirForm("Editar movimiento", camposMov(mov.tipo), mov, d => editar("movimientos", id, d));
-  if(act === "mov-del" && await confirmar("¿Borrar este movimiento?")) await borrar("movimientos", id);
+      d => { const { banco, ...resto } = d; return guardarMov({ ...resto, tipo, bancoId:idDeLabel(banco) }); });
+  if(act === "mov-edit") abrirForm("Editar movimiento", camposMov(mov.tipo), { ...mov, banco:labelDeId(mov.bancoId) }, d => guardarEdicionMov(mov, d));
+  if(act === "mov-del" && await confirmar(mov.bancoId && bancos.some(b => b.id === mov.bancoId) ? "¿Borrar este movimiento? Se devolverá el monto al saldo del banco." : "¿Borrar este movimiento?")){
+    await borrar("movimientos", id);
+    if(mov.bancoId) await ajustarBanco(mov.bancoId, -firmado(mov));
+  }
 
   if(act === "cli-new") abrirForm("Nuevo cliente de Netflix", camposCliente, null, d => crear("clientes", d));
   if(act === "cli-edit") abrirForm("Editar cliente", camposCliente, cli, d => editar("clientes", id, d));
   if(act === "cli-del" && await confirmar(`¿Borrar a ${cli.nombre}?`)) await borrar("clientes", id);
-  if(act === "cli-pay" && await confirmar(`¿Registrar el cobro de ${fmt(cli.precio)} a ${cli.nombre}? Se agregará como ingreso y el vencimiento pasa al mes siguiente.`)){
-    await crear("movimientos", { tipo:"ingreso", fecha:hoy(), descripcion:`Netflix - ${cli.nombre}`, monto:Number(cli.precio||0), categoria:"Netflix" });
-    await editar("clientes", id, { proximoPago: addMonth(cli.proximoPago || hoy()), ultimoPago: hoy() });
-  }
+  if(act === "cli-pay") abrirForm(`Cobrar a ${cli.nombre}`, [
+      { key:"monto", label:"Monto cobrado", type:"number", step:"any", req:true },
+      { key:"banco", label:"¿A qué banco entra?", type:"select", options:opcionesBanco(), def:labelDeId(ultimoBanco()) },
+    ], { monto: Number(cli.precio || 0) }, async d => {
+      await guardarMov({ tipo:"ingreso", fecha:hoy(), descripcion:`Netflix - ${cli.nombre}`, monto:d.monto, categoria:"Netflix", bancoId:idDeLabel(d.banco) });
+      await editar("clientes", id, { proximoPago: addMonth(cli.proximoPago || hoy()), ultimoPago: hoy() });
+      avisar("Cobro registrado. El vencimiento pasó al mes siguiente.");
+    });
 
   if(act === "cuo-new") abrirForm("Nueva cuenta a cuotas", camposCuota, null, d => crear("cuotas", d));
   if(act === "cuo-edit") abrirForm("Editar cuenta a cuotas", camposCuota, cuo, d => editar("cuotas", id, d));
   if(act === "cuo-del" && await confirmar(`¿Borrar “${cuo.concepto}”?`)) await borrar("cuotas", id);
-  if(act === "cuo-pay" && await confirmar(`¿Registrar el pago de la cuota ${cuo.cuotasPagadas+1}/${cuo.totalCuotas} (${fmt(cuo.valorCuota)})? Se agregará como gasto.`)){
-    await crear("movimientos", { tipo:"gasto", fecha:hoy(), descripcion:`Cuota ${cuo.cuotasPagadas+1}/${cuo.totalCuotas} - ${cuo.concepto}`, monto:Number(cuo.valorCuota||0), categoria:"Cuotas" });
-    await editar("cuotas", id, { cuotasPagadas: cuo.cuotasPagadas + 1, proximoVenc: addMonth(cuo.proximoVenc || hoy()) });
-  }
+  if(act === "cuo-pay") abrirForm(`Pagar cuota ${cuo.cuotasPagadas + 1}/${cuo.totalCuotas}`, [
+      { key:"monto", label:`Monto pagado (${cuo.concepto})`, type:"number", step:"any", req:true },
+      { key:"banco", label:"¿De qué banco sale?", type:"select", options:opcionesBanco(), def:labelDeId(ultimoBanco()) },
+    ], { monto: Number(cuo.valorCuota || 0) }, async d => {
+      await guardarMov({ tipo:"gasto", fecha:hoy(), descripcion:`Cuota ${cuo.cuotasPagadas + 1}/${cuo.totalCuotas} - ${cuo.concepto}`, monto:d.monto, categoria:"Cuotas", bancoId:idDeLabel(d.banco) });
+      await editar("cuotas", id, { cuotasPagadas: cuo.cuotasPagadas + 1, proximoVenc: addMonth(cuo.proximoVenc || hoy()) });
+      avisar("Pago registrado.");
+    });
 
+  if(act === "hist-vista"){ histVista = id; render(); }
+  if(act === "hist-mes"){ mes = id; $("#mes").value = id; histVista = "diario"; render(); window.scrollTo?.(0, 0); }
   const cri = cripto.find(x => x.id === id);
   if(act === "go-cripto"){ tab = "cripto"; render(); window.scrollTo?.(0, 0); }
   if(act === "cri-new") abrirForm("Agregar balance cripto", camposCripto, null, d => crear("cripto", d));
