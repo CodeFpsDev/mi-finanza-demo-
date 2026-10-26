@@ -1,6 +1,9 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mis Finanzas</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;600;700&display=swap">
@@ -98,8 +101,8 @@
   .legend{list-style:none;margin:0;padding:0;display:grid;gap:7px;flex:1;min-width:160px}
   .legend li{display:flex;align-items:center;gap:8px;font-size:14px}
   .legend li span:last-child{margin-left:auto;color:var(--muted)}
-  .trading-chart{width:100%;height:auto;display:block;background:var(--soft);border-radius:14px;padding:8px;border:1px solid var(--line)}
-  .trading-chart text{font:500 9px var(--f-body);fill:var(--muted)}
+  .bars{width:100%;height:auto;display:block}
+  .bars text{font:500 10.5px var(--f-body);fill:var(--muted)}
   .keys{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:6px}
   .keys span{display:flex;align-items:center;gap:6px}
 
@@ -198,7 +201,8 @@
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
-
+</head>
+<body>
 
 <div id="setup">
   <div class="card">
@@ -252,14 +256,12 @@
     <button data-tab="cripto"><span data-ico="coin"></span>Cripto</button>
     <button data-tab="bancos"><span data-ico="bank"></span>Bancos</button>
     <button data-tab="negocios"><span data-ico="store"></span>Negocios</button>
-    <button data-tab="historial"><span data-ico="clock"></span>Historial</button>
   </nav>
   <div id="demoBar" class="demobar wrap hidden">Modo demo: los datos son de ejemplo y se guardan solo en este navegador. Para guardar en Firebase, abre esta app desde tu hosting o un servidor local.</div>
   <main id="view" class="wrap enter"></main>
 </div>
 
 <dialog id="dlg"><form method="dialog" class="modal-body" id="dlgForm"></form></dialog>
-
 
 <script type="module">
 /* ============ 1) PEGA AQUÍ LA CONFIGURACIÓN DE TU PROYECTO FIREBASE ============ */
@@ -300,7 +302,7 @@ $("#setup").classList.add("hidden");
 
 /* ---------- Estado ---------- */
 let uid = null, unsubs = [];
-let movs = [], clientes = [], cuotas = [], cripto = [], bancos = [], negocios = [], negMovs = [], historial = [];
+let movs = [], clientes = [], cuotas = [], cripto = [], bancos = [], negocios = [], negMovs = [];
 let negocioSel = null;
 let tab = "resumen";
 let moneda = "USD"; try { moneda = localStorage.getItem("moneda") || "USD"; } catch(e){}
@@ -332,7 +334,7 @@ const fechaFmt = iso => iso ? iso.split("-").reverse().join("/") : "—";
 
 /* ---------- Datos: Firestore, o demo local si Firebase no carga ---------- */
 const DEMO_KEY = "finanzas_demo_v1";
-let demoData = { movimientos:[], clientes:[], cuotas:[], cripto:[], bancos:[], negocios:[], negMovs:[], historial:[] };
+let demoData = { movimientos:[], clientes:[], cuotas:[], cripto:[], bancos:[], negocios:[], negMovs:[] };
 const guardarDemo = () => { try { localStorage.setItem(DEMO_KEY, JSON.stringify(demoData)); } catch(e){} };
 function semillaNegocios(){
   const h = hoy(), m0 = h.slice(0,7);
@@ -362,14 +364,7 @@ function semillaCripto(){
   ];
 }
 function cargarDemo(){
-  try { const g = localStorage.getItem(DEMO_KEY); if(g){ const o = JSON.parse(g); if(!o.cripto) o.cripto = semillaCripto(); o.cripto.forEach(x => { if(x.moneda === "USDC") x.moneda = "USDT"; }); if(!o.bancos) o.bancos = semillaBancos(); if(!o.negocios){ const q = semillaNegocios(); o.negocios = q.negocios; o.negMovs = q.negMovs; } if(!o.historial) o.historial = [
-    { id:"h1", fecha:"2026-10-01", neto:2000, bancos:1500, negocios:500 },
-    { id:"h2", fecha:"2026-10-05", neto:2150, bancos:1600, negocios:550 },
-    { id:"h3", fecha:"2026-10-10", neto:2300, bancos:1750, negocios:550 },
-    { id:"h4", fecha:"2026-10-15", neto:2200, bancos:1650, negocios:550 },
-    { id:"h5", fecha:"2026-10-20", neto:2500, bancos:1900, negocios:600 },
-    { id:"h6", fecha:"2026-10-25", neto:2650, bancos:2000, negocios:650 }
-  ]; return o; } } catch(e){}
+  try { const g = localStorage.getItem(DEMO_KEY); if(g){ const o = JSON.parse(g); if(!o.cripto) o.cripto = semillaCripto(); o.cripto.forEach(x => { if(x.moneda === "USDC") x.moneda = "USDT"; }); if(!o.bancos) o.bancos = semillaBancos(); if(!o.negocios){ const q = semillaNegocios(); o.negocios = q.negocios; o.negMovs = q.negMovs; } return o; } } catch(e){}
   const m0 = hoy().slice(0,7);
   const d = n => { const x = new Date(); x.setDate(x.getDate()+n); const p = k => String(k).padStart(2,"0"); return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`; };
   return {
@@ -377,14 +372,6 @@ function cargarDemo(){
     bancos: semillaBancos(),
     negocios: semillaNegocios().negocios,
     negMovs: semillaNegocios().negMovs,
-    historial: [
-      { id:"h1", fecha:m0+"-01", neto:2000, bancos:1500, negocios:500 },
-      { id:"h2", fecha:m0+"-05", neto:2150, bancos:1600, negocios:550 },
-      { id:"h3", fecha:m0+"-10", neto:2300, bancos:1750, negocios:550 },
-      { id:"h4", fecha:m0+"-15", neto:2200, bancos:1650, negocios:550 },
-      { id:"h5", fecha:m0+"-20", neto:2500, bancos:1900, negocios:600 },
-      { id:"h6", fecha:m0+"-25", neto:2650, bancos:2000, negocios:650 }
-    ],
     movimientos:[
       { id:"m1", tipo:"ingreso", fecha:m0+"-02", descripcion:"Sueldo del mes (ejemplo)", monto:1200, categoria:"Salario" },
       { id:"m2", tipo:"ingreso", fecha:m0+"-04", descripcion:"Venta de accesorios (ejemplo)", monto:60, categoria:"Venta" },
@@ -402,12 +389,30 @@ function cargarDemo(){
     ],
   };
 }
-const emitirDemo = () => { movs = [...demoData.movimientos]; clientes = [...demoData.clientes]; cuotas = [...demoData.cuotas]; cripto = [...(demoData.cripto || [])]; bancos = [...(demoData.bancos || [])]; negocios = [...(demoData.negocios || [])]; negMovs = [...(demoData.negMovs || [])]; historial = [...(demoData.historial || [])]; render(); };
+const emitirDemo = () => { movs = [...demoData.movimientos]; clientes = [...demoData.clientes]; cuotas = [...demoData.cuotas]; cripto = [...(demoData.cripto || [])]; bancos = [...(demoData.bancos || [])]; negocios = [...(demoData.negocios || [])]; negMovs = [...(demoData.negMovs || [])]; render(); };
 
 const col = name => collection(db, "users", uid, name);
 const ref = (name, id) => doc(db, "users", uid, name, id);
 
+/* Acceso rápido: ?nuevo=gasto o ?nuevo=ingreso abre el formulario al entrar */
+let rapidoHecho = false;
+function abrirRapido(){
+  if(rapidoHecho) return;
+  let p = null;
+  try { p = new URLSearchParams(location.search).get("nuevo"); } catch(e){}
+  if(p !== "gasto" && p !== "ingreso") return;
+  rapidoHecho = true;
+  setTimeout(() => {
+    tab = "movs"; render();
+    abrirForm(p === "ingreso" ? "Nuevo ingreso" : "Nuevo gasto", camposMov(p), null,
+      d => crear("movimientos", { ...d, tipo:p }).then(() => avisar("Guardado")));
+    try { $("#dlgForm").elements["monto"].focus(); } catch(e){}
+    try { history.replaceState(null, "", location.pathname); } catch(e){}
+  }, 0);
+}
+
 function suscribir(){
+  abrirRapido();
   cargarPrecios();
   if(demo){ emitirDemo(); return; }
   const watch = (name, setter) => onSnapshot(col(name), snap => {
@@ -422,7 +427,6 @@ function suscribir(){
     watch("bancos", v => bancos = v),
     watch("negocios", v => negocios = v),
     watch("negMovs", v => negMovs = v),
-    watch("historial", v => historial = v),
   ];
 }
 const crear = (name, data) => {
@@ -485,7 +489,7 @@ if(!demo){
       $("#app").classList.remove("hidden");
       suscribir();
     } else {
-      uid = null; movs = []; clientes = []; cuotas = []; cripto = []; bancos = []; negocios = []; negMovs = []; historial = [];
+      uid = null; movs = []; clientes = []; cuotas = []; cripto = []; bancos = []; negocios = []; negMovs = [];
       $("#app").classList.add("hidden");
       $("#auth").classList.remove("hidden");
     }
@@ -842,113 +846,12 @@ function vCripto(){
     : `<div class="empty"><span class="chip" style="--c:var(--c3)">${ico("coin", 26)}</span><p>Aún no registras cripto. Agrega tu balance de BTC o USDT.</p></div>`}`;
 }
 
-/* ---------- Funciones de Patrimonio Neto y Gráfico de Columnas Diario ---------- */
-function calcularPatrimonioTotal(){
-  const totalBancos = bancos.reduce((s, b) => s + Number(b.saldo || 0), 0);
-  const bc = balCripto();
-  const { t: totalCriptoUsd } = totalUsd(bc);
-  const totalNegocios = negocios.reduce((s, n) => s + statsNeg(n).res, 0);
-  return {
-    bancos: totalBancos,
-    criptoUsd: totalCriptoUsd,
-    negocios: totalNegocios,
-    neto: totalBancos + totalNegocios
-  };
-}
-
-async function registrarCierreMes(){
-  const p = calcularPatrimonioTotal();
-  const fechaHoy = hoy();
-  const existente = historial.find(h => h.fecha === fechaHoy);
-  if(existente){
-    await editar("historial", existente.id, { ...p, actualizado: fechaHoy });
-    avisar("¡Patrimonio del día " + fechaHoy + " actualizado!");
-  } else {
-    await crear("historial", { fecha: fechaHoy, ...p, creado: fechaHoy });
-    avisar("¡Guardado el Net Worth de hoy (" + fechaHoy + ")!");
-  }
-}
-
-function renderTradingChart(){
-  // Filtramos el historial del mes seleccionado actualmente en el selector superior
-  const lista = historial
-    .filter(h => (h.fecha || "").startsWith(mes))
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
-
-  if(!lista.length) return `<div class="empty small"><p>No hay registros diarios para ${esc(mesLabel())}. Guarda el cierre de hoy para ver las columnas.</p></div>`;
-
-  const W = 600, H = 220, pad = 40;
-  const valores = lista.map(h => Number(h.neto || 0));
-  const minVal = Math.min(0, ...valores);
-  const maxVal = Math.max(1, ...valores);
-  const rango = maxVal - minVal || 1;
-
-  const colWidth = Math.max(8, Math.floor((W - pad * 2) / lista.length) - 6);
-
-  const columnasSVG = lista.map((h, i) => {
-    const x = pad + i * ((W - pad * 2) / lista.length) + ((W - pad * 2) / lista.length - colWidth) / 2;
-    const alturaCol = Math.max(8, ((h.neto - minVal) / rango) * (H - pad * 2 - 20));
-    const y = H - pad - alturaCol;
-    const diaStr = h.fecha ? h.fecha.slice(8, 10) : i+1;
-    return `
-      <g>
-        <rect x="${x}" y="${y}" width="${colWidth}" height="${alturaCol}" rx="3" fill="var(--primary)">
-          <title>${h.fecha}: ${fmt(h.neto)}</title>
-        </rect>
-        <text x="${x + colWidth / 2}" y="${H - 10}" text-anchor="middle" font-size="9" fill="var(--muted)">${diaStr}</text>
-      </g>`;
-  }).join("");
-
-  return `
-  <div class="card" style="margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <h3>📊 Evolución Diaria de Patrimonio (${esc(mesLabel())})</h3>
-      <span class="pill ok">NET WORTH</span>
-    </div>
-    <svg class="trading-chart" viewBox="0 0 ${W} ${H}">
-      <!-- Líneas de fondo tipo grid -->
-      <line x1="${pad}" y1="20" x2="${pad}" y2="${H-25}" stroke="var(--line)" stroke-dasharray="3"/>
-      <line x1="${pad}" y1="${H-25}" x2="${W-pad}" y2="${H-25}" stroke="var(--line)"/>
-      <line x1="${pad}" y1="${H/2}" x2="${W-pad}" y2="${H/2}" stroke="var(--line)" stroke-dasharray="3"/>
-      
-      ${columnasSVG}
-    </svg>
-  </div>`;
-}
-
-function vHistorial(){
-  const listaHistorial = [...historial].sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-  return `
-  <div class="sec-h">
-    <h2>Historial Diario de Patrimonio</h2>
-    <button class="btn small" data-act="guardar-cierre">Guardar registro de hoy (${hoy()})</button>
-  </div>
-  <div class="muted" style="margin-bottom:14px">Monitorea tu evolución día a día con columnas detalladas.</div>
-  
-  ${renderTradingChart()}
-
-  ${listaHistorial.length ? `<ul class="list">${listaHistorial.map(h => `
-    <li>
-      <div class="main"><b>Fecha: ${esc(h.fecha)}</b><span>Bancos: ${fmt(h.bancos)} · Negocios: ${fmt(h.negocios)}</span></div>
-      <span class="amt ok">Neto: ${fmt(h.neto)}</span>
-    </li>`).join("")}</ul>`
-    : `<div class="empty"><span class="chip" style="--c:var(--c1)">${ico("wallet", 26)}</span><p>Guarda tus registros diarios para ver la evolución en columnas.</p></div>`}`;
-}
-
 /* ---------- Render ---------- */
 function render(){
   if(!uid) return;
   saludo();
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  
-  if(tab === "resumen") $("#view").innerHTML = vResumen();
-  else if(tab === "movs") $("#view").innerHTML = vMovs();
-  else if(tab === "netflix") $("#view").innerHTML = vNetflix();
-  else if(tab === "cuotas") $("#view").innerHTML = vCuotas();
-  else if(tab === "cripto") $("#view").innerHTML = vCripto();
-  else if(tab === "bancos") $("#view").innerHTML = vBancos();
-  else if(tab === "negocios") $("#view").innerHTML = vNegocios();
-  else if(tab === "historial") $("#view").innerHTML = vHistorial();
+  $("#view").innerHTML = tab === "resumen" ? vResumen() : tab === "movs" ? vMovs() : tab === "netflix" ? vNetflix() : tab === "cripto" ? vCripto() : tab === "bancos" ? vBancos() : tab === "negocios" ? vNegocios() : vCuotas();
 }
 
 const movsMes = () => movs.filter(m => (m.fecha || "").startsWith(mes));
@@ -1180,8 +1083,6 @@ $("#view").onclick = async e => {
   const { act, id, tipo } = b.dataset;
   const mov = movs.find(x => x.id === id), cli = clientes.find(x => x.id === id), cuo = cuotas.find(x => x.id === id);
 
-  if(act === "guardar-cierre") await registrarCierreMes();
-
   if(act === "mov-new") abrirForm(tipo === "ingreso" ? "Nuevo ingreso" : "Nuevo gasto", camposMov(tipo), null,
       d => crear("movimientos", { ...d, tipo }));
   if(act === "mov-edit") abrirForm("Editar movimiento", camposMov(mov.tipo), mov, d => editar("movimientos", id, d));
@@ -1197,7 +1098,7 @@ $("#view").onclick = async e => {
 
   if(act === "cuo-new") abrirForm("Nueva cuenta a cuotas", camposCuota, null, d => crear("cuotas", d));
   if(act === "cuo-edit") abrirForm("Editar cuenta a cuotas", camposCuota, cuo, d => editar("cuotas", id, d));
-  if(act === "cuo-del" && await confirmar(`¿Borrar “{cuo.concepto}”?`)) await borrar("cuotas", id);
+  if(act === "cuo-del" && await confirmar(`¿Borrar “${cuo.concepto}”?`)) await borrar("cuotas", id);
   if(act === "cuo-pay" && await confirmar(`¿Registrar el pago de la cuota ${cuo.cuotasPagadas+1}/${cuo.totalCuotas} (${fmt(cuo.valorCuota)})? Se agregará como gasto.`)){
     await crear("movimientos", { tipo:"gasto", fecha:hoy(), descripcion:`Cuota ${cuo.cuotasPagadas+1}/${cuo.totalCuotas} - ${cuo.concepto}`, monto:Number(cuo.valorCuota||0), categoria:"Cuotas" });
     await editar("cuotas", id, { cuotasPagadas: cuo.cuotasPagadas + 1, proximoVenc: addMonth(cuo.proximoVenc || hoy()) });
@@ -1220,14 +1121,14 @@ $("#view").onclick = async e => {
   if(act === "ban-edit") abrirForm("Editar cuenta", camposBanco(), ban, d => editar("bancos", id, { ...d, actualizado: hoy() }));
   if(act === "ban-saldo") abrirForm(`Saldo de ${ban.nombre}`, [{ key:"saldo", label:`Saldo actual (${ban.moneda})`, type:"number", step:"any", req:true }], ban,
       d => editar("bancos", id, { saldo: d.saldo, actualizado: hoy() }));
-  if(act === "ban-del" && await confirmar(`¿Borrar la cuenta “{ban.nombre}”?`)) await borrar("bancos", id);
+  if(act === "ban-del" && await confirmar(`¿Borrar la cuenta “${ban.nombre}”?`)) await borrar("bancos", id);
 
   const neg = negocios.find(x => x.id === id), nm = negMovs.find(x => x.id === id);
   if(act === "neg-new") abrirForm("Nuevo negocio", camposNegocio, null, d => crear("negocios", d));
   if(act === "neg-edit") abrirForm("Editar negocio", camposNegocio, neg, d => editar("negocios", id, d));
   if(act === "neg-open"){ negocioSel = id; render(); window.scrollTo?.(0, 0); }
   if(act === "neg-back"){ negocioSel = null; render(); }
-  if(act === "neg-del" && await confirmar(`¿Borrar el negocio “{neg.nombre}” y todos sus movimientos?`)){
+  if(act === "neg-del" && await confirmar(`¿Borrar el negocio “${neg.nombre}” y todos sus movimientos?`)){
     for(const m of negMovs.filter(x => x.negocioId === id)) await borrar("negMovs", m.id);
     if(negocioSel === id) negocioSel = null;
     await borrar("negocios", id);
@@ -1239,5 +1140,5 @@ $("#view").onclick = async e => {
 
 if (demo) iniciarDemo();
 </script>
-
-</body></html>
+</body>
+</html>
